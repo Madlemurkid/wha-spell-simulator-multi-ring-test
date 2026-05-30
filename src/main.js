@@ -56,6 +56,7 @@ function animationFrame(timestamp) {
     currentStroke: capture.getCurrentStroke(),
     pipeline,
     showGuides: elements.guidesToggle.checked,
+    showMultiRingGuides: elements.multiRingGuidesToggle.checked,
     showDebug: elements.diagnosticsToggle.checked
   });
 
@@ -94,6 +95,10 @@ function setupControls() {
   elements.guidesToggle.addEventListener("change", () => {
     updateSummary({ elements, store, capture, pipeline, spellIR });
     updateDiagnostics({ elements, store, pipeline, spellIR });
+  });
+
+  elements.multiRingGuidesToggle.addEventListener("change", () => {
+    // toggle visibility of multi-ring guide rendering
   });
 
   elements.diagnosticsToggle.addEventListener("change", () => {

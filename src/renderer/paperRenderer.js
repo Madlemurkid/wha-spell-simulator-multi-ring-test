@@ -11,9 +11,12 @@ export function drawPaper(ctx, width, height) {
   ctx.fillRect(0, 0, width, height);
 }
 
-export function drawGuides(ctx, ring, width, height, config) {
-  const center = ring?.found ? ring.center : { x: width / 2, y: height / 2 };
-  const radius = ring?.found ? ring.radius : Math.min(width, height) * 0.36;
+export function drawGuides(ctx, ringOrRings, width, height, config) {
+  const rings = Array.isArray(ringOrRings) ? ringOrRings.filter(Boolean) : [ringOrRings];
+  const validRings = rings.filter((ring) => ring?.found);
+  const primaryRing = validRings[0] ?? null;
+  const center = primaryRing?.center ?? { x: width / 2, y: height / 2 };
+  const radius = primaryRing?.radius ?? Math.min(width, height) * 0.36;
   const guideRadii = [
     radius * config.layers.centerMax,
     radius * config.layers.middleMax,
@@ -25,10 +28,21 @@ export function drawGuides(ctx, ring, width, height, config) {
   ctx.strokeStyle = config.renderer.guideColor;
   ctx.lineWidth = 1;
   ctx.setLineDash([8, 10]);
-  for (const guideRadius of guideRadii) {
-    ctx.beginPath();
-    ctx.arc(center.x, center.y, guideRadius, 0, Math.PI * 2);
-    ctx.stroke();
+
+  const ringCandidates = validRings.length ? validRings : [{ center, radius }];
+  for (const ring of ringCandidates) {
+    const ringGuideRadii = [
+      ring.radius * config.layers.centerMax,
+      ring.radius * config.layers.middleMax,
+      ring.radius * config.layers.outerMax,
+      ring.radius
+    ];
+
+    for (const guideRadius of ringGuideRadii) {
+      ctx.beginPath();
+      ctx.arc(ring.center.x, ring.center.y, guideRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   ctx.setLineDash([5, 16]);

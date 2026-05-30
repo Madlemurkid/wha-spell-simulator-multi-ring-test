@@ -32,9 +32,18 @@
               <span>Guides</span>
             </label>
             <label class="toggle">
+              <input type="checkbox" id="multiRingGuidesToggle" checked>
+              <span>Multi-ring Guides</span>
+            </label>
+            <label class="toggle">
               <input type="checkbox" id="diagnosticsToggle">
               <span>Glyph Diagnostics</span>
             </label>
+          </section>
+          <section class="control-section">
+            <p class="panel-description">
+              Nested concentric rings are supported for compound spell seals. Turn on Multi-ring Guides to see ring layers and scopes while drawing.
+            </p>
           </section>
 
           <h2 class="panel-section-title">Spell State</h2>
@@ -73,6 +82,7 @@
           <div class="canvas-shell">
             <p class="canvas-hint" id="canvasHint">
               Draw an open spell ring. Place sigils in the center and signs around them.
+              Nested rings are supported for multi-ring spells; use the Multi-ring Guides toggle to show ring scopes.
               When everything is ready, seal the circle to awaken the spell.
             </p>
             <canvas id="glyphCanvas" width="1200" height="800"></canvas>

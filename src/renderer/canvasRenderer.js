@@ -29,13 +29,19 @@ export class CanvasRenderer {
     this.config = config;
   }
 
-  renderGlyph({ strokes, currentStroke, pipeline, showGuides, showDebug }) {
+  renderGlyph({ strokes, currentStroke, pipeline, showGuides, showMultiRingGuides, showDebug }) {
     const width = this.glyphCanvas.width;
     const height = this.glyphCanvas.height;
     drawPaper(this.glyphCtx, width, height);
 
     if (showGuides) {
-      drawGuides(this.glyphCtx, pipeline?.ring, width, height, this.config);
+      drawGuides(
+        this.glyphCtx,
+        showMultiRingGuides ? pipeline?.rings ?? [pipeline?.ring] : pipeline?.ring,
+        width,
+        height,
+        this.config
+      );
     }
 
     drawStrokes(this.glyphCtx, strokes, currentStroke, this.config);
