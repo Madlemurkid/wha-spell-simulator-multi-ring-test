@@ -224,6 +224,56 @@ function stripRecognitionDiagnostics(recognition) {
   return publicRecognition;
 }
 
+function flattenRingTree(rings) {
+  const nodes = [];
+  const visit = (ring) => {
+    nodes.push(ring);
+    (ring.children ?? []).forEach(visit);
+  };
+  rings.forEach(visit);
+  return nodes;
+}
+
+function buildRingTreeData(rings, candidates, recognitions) {
+  const byRingId = new Map(rings.map((ring) => [ring.ringId, { ...ring, candidates: [], sigils: [], signs: [] }]));
+  const recognitionMap = new Map(recognitions.map((recognition) => [recognition.candidateId, recognition]));
+
+  for (const candidate of candidates) {
+    const node = byRingId.get(candidate.ringId);
+    if (node) {
+      node.candidates.push(stripCandidate(candidate));
+    }
+  }
+
+  for (const recognition of recognitions) {
+    const node = byRingId.get(recognition.ringId);
+    if (!node) {
+      continue;
+    }
+    if (recognition.kind === "sigil") {
+      node.sigils.push(stripRecognitionDiagnostics(recognition));
+    } else if (recognition.kind === "sign") {
+      node.signs.push(stripRecognitionDiagnostics(recognition));
+    }
+  }
+
+  const treeNodes = Array.from(byRingId.values());
+  const roots = treeNodes.filter((ring) => !ring.parentRingId);
+  const nodeMap = new Map(treeNodes.map((node) => [node.ringId, node]));
+
+  for (const node of treeNodes) {
+    if (node.parentRingId) {
+      const parent = nodeMap.get(node.parentRingId);
+      if (parent) {
+        parent.children = parent.children ?? [];
+        parent.children.push(node);
+      }
+    }
+  }
+
+  return roots;
+}
+
 function warningList(ring, primarySigil, unsupportedMultipleSigils, unknowns, recognitions) {
   const warnings = [];
   if (!ring.found) {
@@ -265,6 +315,7 @@ export function classifyDrawing({ strokes, previousRing = null, dictionary, conf
   const cleanedStrokes = cleanStrokes(strokes, config);
   const ringResult = detectRings(cleanedStrokes, previousRing, config);
   const rings = ringResult.rings;
+  const ringTree = ringResult.ringTree ?? [];
   const ring = rings[0] ?? {
     found: false,
     complete: false,
@@ -314,19 +365,9 @@ export function classifyDrawing({ strokes, previousRing = null, dictionary, conf
 
   const recognitions = recognizeCandidates(candidates, dictionary, config);
   const sigils = recognizedSigils(recognitions);
-  const supportedSigils = [];
+  const supportedSigils = sigils;
   const unsupportedMultipleSigils = [];
-  const seenRingIds = new Set();
-
-  for (const sigil of sigils) {
-    if (sigil.ringId && !seenRingIds.has(sigil.ringId)) {
-      seenRingIds.add(sigil.ringId);
-      supportedSigils.push(sigil);
-    } else {
-      unsupportedMultipleSigils.push(stripRecognitionDiagnostics(sigil));
-    }
-  }
-
+  const ringTreeData = buildRingTreeData(ringTree, candidates, recognitions);
   const primarySigil = selectPrimarySigil(supportedSigils);
   const signs = recognitions
     .filter((recognition) => recognition.recognized && recognition.kind === "sign")
@@ -340,6 +381,7 @@ export function classifyDrawing({ strokes, previousRing = null, dictionary, conf
     version: config.appVersion,
     rings,
     ring,
+    ringTree: ringTreeData,
     candidates: candidates.map(stripCandidate),
     primarySigil: stripRecognitionDiagnostics(primarySigil),
     sigils: sigils.map(stripRecognitionDiagnostics),

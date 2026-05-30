@@ -479,29 +479,55 @@ function distinctRingCandidates(candidates) {
       distinct.push(candidate);
     }
   }
-  return distinct;
+  return distinct
+    .sort((a, b) => b.radius - a.radius)
+    .map((ring, index) => ({
+      ...ring,
+      ringId: `r${index + 1}`
+    }));
 }
 
-function isConcentricHierarchy(rings) {
-  if (rings.length < 2) {
-    return true;
+function ringContains(parent, child, config) {
+  const centerDistance = distance(parent.center, child.center);
+  const tolerance = Math.max(config.layers.boundaryTolerance * parent.radius, 10);
+  return centerDistance + child.radius <= parent.radius + tolerance;
+}
+
+function buildRingTree(rings, config) {
+  const sorted = [...rings].sort((a, b) => b.radius - a.radius);
+  const ringNodes = sorted.map((ring) => ({
+    ...ring,
+    children: [],
+    parentRingId: null
+  }));
+
+  for (const ring of ringNodes) {
+    let parent = null;
+    for (const candidate of ringNodes) {
+      if (candidate.radius <= ring.radius) {
+        continue;
+      }
+      if (!ringContains(candidate, ring, config)) {
+        continue;
+      }
+      if (!parent || candidate.radius < parent.radius) {
+        parent = candidate;
+      }
+    }
+    if (parent) {
+      ring.parentRingId = parent.ringId;
+      parent.children.push(ring);
+    }
   }
 
-  const outer = rings[0];
-  return rings.every((ring) => {
-    const centerDistance = distance(ring.center, outer.center);
-    const averageRadius = Math.max(1, (ring.radius + outer.radius) / 2);
-    return centerDistance <= averageRadius * SAME_RING_CENTER_DISTANCE_RATIO;
-  });
-}
+  const roots = ringNodes.filter((ring) => ring.parentRingId === null);
+  const setDepth = (node, depth) => {
+    node.depth = depth;
+    (node.children ?? []).forEach((child) => setDepth(child, depth + 1));
+  };
+  roots.forEach((root) => setDepth(root, 0));
 
-function ringHierarchy(rings) {
-  return rings.map((ring, index) => ({
-    ...ring,
-    ringId: `r${index + 1}`,
-    depth: index,
-    parentRingId: index === 0 ? null : `r${index}`
-  }));
+  return roots;
 }
 
 function summarizeUnsupportedRing(candidate) {
@@ -549,21 +575,14 @@ export function detectRings(strokes, previousRing, config) {
   candidates.sort((a, b) => Number(b.complete) - Number(a.complete) || b.score + b.radius * 0.001 - (a.score + a.radius * 0.001));
   const distinctRings = distinctRingCandidates(candidates);
   const sortedRings = [...distinctRings].sort((a, b) => b.radius - a.radius);
-  const nested = isConcentricHierarchy(sortedRings);
-
-  if (!nested) {
-    const ring = sortedRings[0];
-    const unsupportedMultipleRings = sortedRings.slice(1).map(summarizeUnsupportedRing);
-    return {
-      rings: [ring],
-      unsupportedMultipleRings,
-      unsupportedNestedRings: []
-    };
-  }
+  const ringTree = buildRingTree(sortedRings, config);
+  const rootRings = ringTree;
+  const unsupportedMultipleRings = rootRings.length > 1 ? rootRings.slice(1).map(summarizeUnsupportedRing) : [];
 
   return {
-    rings: ringHierarchy(sortedRings),
-    unsupportedMultipleRings: [],
+    rings: sortedRings,
+    ringTree,
+    unsupportedMultipleRings,
     unsupportedNestedRings: []
   };
 }

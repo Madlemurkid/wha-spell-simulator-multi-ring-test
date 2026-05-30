@@ -137,10 +137,6 @@ export function compileSpell({ glyphAST, config }) {
     return invalidSpell("Multiple rings detected", glyphAST, [GLYPH_WARNINGS.unsupportedMultipleRings]);
   }
 
-  if (glyphAST.unsupportedMultipleSigils?.length) {
-    return invalidSpell("Multiple sigils detected", glyphAST, [GLYPH_WARNINGS.unsupportedMultipleSigils]);
-  }
-
   const sigils = glyphAST.sigils ?? (glyphAST.primarySigil ? [glyphAST.primarySigil] : []);
   const validSigils = sigils.filter((sigil) => sigil.recognized && sigil.element);
   const primary = glyphAST.primarySigil ?? validSigils[0] ?? null;

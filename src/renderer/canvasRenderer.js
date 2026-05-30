@@ -5,7 +5,7 @@ import {
   drawStrokes,
   drawGlowingStrokes
 } from "./glyphOverlayRenderer.js";
-import { drawGuides, drawPaper } from "./paperRenderer.js";
+import { drawGuides, drawMultiRingGuides, drawPaper } from "./paperRenderer.js";
 import { SpellEffectRenderer } from "./spellEffectRenderer.js";
 
 function getActivatedStrokeIds(pipeline) {
@@ -35,13 +35,12 @@ export class CanvasRenderer {
     drawPaper(this.glyphCtx, width, height);
 
     if (showGuides) {
-      drawGuides(
-        this.glyphCtx,
-        showMultiRingGuides ? pipeline?.rings ?? [pipeline?.ring] : pipeline?.ring,
-        width,
-        height,
-        this.config
-      );
+      const rings = pipeline?.glyphAST?.rings ?? (pipeline?.ring ? [pipeline.ring] : []);
+      if (showMultiRingGuides && rings.length > 1) {
+        drawMultiRingGuides(this.glyphCtx, rings, width, height, this.config);
+      } else {
+        drawGuides(this.glyphCtx, pipeline?.ring, width, height, this.config);
+      }
     }
 
     drawStrokes(this.glyphCtx, strokes, currentStroke, this.config);
