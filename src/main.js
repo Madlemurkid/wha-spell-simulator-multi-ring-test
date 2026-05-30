@@ -22,10 +22,6 @@ let spellIR = null;
 let previousRing = null;
 let resizeObserver = null;
 let currentViewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
-let askOnAmbiguousRecognition = false;
-let pendingAmbiguousCandidate = null;
-let resolvedAmbiguousCandidateIds = new Set();
-let promptedAmbiguousCandidateIds = new Set();
 let skipAmbiguousOnNextRecompute = false;
 
 function setupCanvasSizing() {
@@ -51,124 +47,10 @@ function resetViewTransform() {
   capture?.setViewTransform(currentViewTransform);
 }
 
-function showAmbiguityPanel(recognition) {
-  if (!elements.ambiguityPanel || !elements.ambiguityOptions) {
-    return;
-  }
-
-  pendingAmbiguousCandidate = recognition;
-  elements.ambiguityMessage.textContent = `Ambiguous symbol near radius ${Math.round(
-    recognition.radiusNorm * 100
-  )}%: choose the best match.`;
-  elements.ambiguityOptions.innerHTML = "";
-
-  const topMatches = recognition.diagnostics?.topMatches ?? [];
-  for (const match of topMatches) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "ambiguity-option-button";
-    button.textContent = `${match.kind} ${match.id} (${Math.round(match.confidence * 100)}%)`;
-    button.addEventListener("click", () => {
-      applyAmbiguitySelection(recognition.candidateId, match);
-    });
-    elements.ambiguityOptions.appendChild(button);
-  }
-
-  elements.ambiguityPanel.classList.remove("hidden");
-}
-
-function hideAmbiguityPanel() {
-  if (!elements.ambiguityPanel) {
-    return;
-  }
-  elements.ambiguityPanel.classList.add("hidden");
-  pendingAmbiguousCandidate = null;
-}
-
-function applyAmbiguitySelection(candidateId, selectedMatch) {
-  hideAmbiguityPanel();
-  if (!pipeline?.recognitions) {
-    return;
-  }
-
-  const recognition = pipeline.recognitions.find((item) => item.candidateId === candidateId);
-  if (!recognition) {
-    return;
-  }
-
-  const entry = dictionary[`${selectedMatch.kind}s`]?.find((item) => item.id === selectedMatch.id);
-  if (!entry) {
-    return;
-  }
-
-  recognition.recognized = true;
-  recognition.kind = selectedMatch.kind;
-  recognition.id = selectedMatch.id;
-  recognition.displayName = entry.displayName ?? selectedMatch.id;
-  recognition.element = entry.element ?? null;
-  recognition.semantic = entry.semantic ?? null;
-  recognition.confidence = selectedMatch.confidence;
-  recognition.recognitionStatus = "valid";
-  recognition.diagnostics.bestGuess = selectedMatch;
-
-  resolvedAmbiguousCandidateIds.add(candidateId);
-  promptedAmbiguousCandidateIds.add(candidateId);
-
-  pipeline.glyphAST = buildGlyphAST({
-    rings: pipeline.glyphAST.rings,
-    ring: pipeline.glyphAST.ring,
-    ringTree: pipeline.glyphAST.ringTree,
-    candidates: pipeline.candidates,
-    recognitions: pipeline.recognitions,
-    config: CONFIG
-  });
-
-  spellIR = compileSpell({ glyphAST: pipeline.glyphAST, dictionary, config: CONFIG });
-  updateSummary({ elements, store, capture, pipeline, spellIR });
-  updateDiagnostics({ elements, store, pipeline, spellIR });
-}
-
-function skipAmbiguityForCandidate(candidateId) {
-  promptedAmbiguousCandidateIds.add(candidateId);
-  hideAmbiguityPanel();
-}
-
-function shouldPromptAmbiguousRecognition(recognition) {
-  if (!recognition || recognition.recognitionStatus !== "ambiguous") {
-    return false;
-  }
-  if (resolvedAmbiguousCandidateIds.has(recognition.candidateId)) {
-    return false;
-  }
-  if (promptedAmbiguousCandidateIds.has(recognition.candidateId)) {
-    return false;
-  }
-  const matches = recognition.diagnostics?.topMatches ?? [];
-  if (matches.length < 2) {
-    return false;
-  }
-  const minConfidence = CONFIG.recognition.minConfidence ?? 0.48;
-  const bestConfidence = matches[0].confidence ?? 0;
-  return bestConfidence >= minConfidence * 0.6;
-}
-
 function resolveAmbiguousRecognitions(currentPipeline) {
-  if (!askOnAmbiguousRecognition || skipAmbiguousOnNextRecompute || !currentPipeline?.recognitions?.length) {
+  if (skipAmbiguousOnNextRecompute) {
     skipAmbiguousOnNextRecompute = false;
-    hideAmbiguityPanel();
-    return currentPipeline;
   }
-
-  const ambiguousRecognition = currentPipeline.recognitions.find((recognition) =>
-    shouldPromptAmbiguousRecognition(recognition)
-  );
-
-  if (!ambiguousRecognition) {
-    hideAmbiguityPanel();
-    return currentPipeline;
-  }
-
-  showAmbiguityPanel(ambiguousRecognition);
   return currentPipeline;
 }
 
@@ -253,21 +135,6 @@ function setupControls() {
     elements.zoomValue.textContent = `${Math.round(newScale * 100)}%`;
     previousRing = null;
     recompute();
-  });
-
-  elements.ambiguousPromptToggle.addEventListener("change", () => {
-    askOnAmbiguousRecognition = elements.ambiguousPromptToggle.checked;
-    if (!askOnAmbiguousRecognition) {
-      hideAmbiguityPanel();
-    }
-  });
-
-  elements.ambiguityDismissButton.addEventListener("click", () => {
-    if (!pendingAmbiguousCandidate) {
-      hideAmbiguityPanel();
-      return;
-    }
-    skipAmbiguityForCandidate(pendingAmbiguousCandidate.candidateId);
   });
 
   elements.guidesToggle.addEventListener("change", () => {

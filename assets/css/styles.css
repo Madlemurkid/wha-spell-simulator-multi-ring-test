@@ -287,34 +287,6 @@ body:not(.sigil-maker-page) .app-shell {
   width: 100%;
 }
 
-.ambiguity-options {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.ambiguity-option-button,
-.button-secondary {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid rgba(36, 27, 22, 0.18);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #241b16;
-  font: inherit;
-  cursor: pointer;
-}
-
-.ambiguity-option-button:hover,
-.button-secondary:hover {
-  background: rgba(255, 246, 213, 0.95);
-}
-
-.ambiguity-option-button:focus,
-.button-secondary:focus {
-  outline: 2px solid rgba(88, 171, 174, 0.9);
-  outline-offset: 2px;
-}
 
 .panel-section-title {
   margin: 10px 0 10px;
