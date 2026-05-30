@@ -1,5 +1,5 @@
 import { GLYPH_WARNINGS } from "../parser/glyphWarnings.js";
-import { clamp } from "../utils/geometry.js";
+import { clamp, mean } from "../utils/geometry.js";
 import {
   aggregateManifestations,
   aggregateSemanticDeltas,
@@ -42,6 +42,24 @@ function sameKindAlternateConfidence(recognition) {
   );
 }
 
+function groupBy(array, key) {
+  return array.reduce((map, item) => {
+    const value = item?.[key] ?? null;
+    const list = map.get(value) ?? [];
+    list.push(item);
+    map.set(value, list);
+    return map;
+  }, new Map());
+}
+
+function stripRecognitionDiagnostics(recognition) {
+  if (!recognition) {
+    return null;
+  }
+  const { diagnostics, ...publicRecognition } = recognition;
+  return publicRecognition;
+}
+
 function invalidSpell(status, glyphAST, warnings = []) {
   const ringComplete = Boolean(glyphAST.ring?.complete);
   const combinedWarnings = [...new Set([...(glyphAST.warnings ?? []), ...warnings])];
@@ -53,6 +71,9 @@ function invalidSpell(status, glyphAST, warnings = []) {
     status,
     activatedAt: null,
     element: null,
+    compoundElement: null,
+    sigils: [],
+    ringEffects: [],
     elementConfidence: 0,
     primarySizeNorm: 0,
     effectScale: 1,
@@ -120,7 +141,10 @@ export function compileSpell({ glyphAST, config }) {
     return invalidSpell("Multiple sigils detected", glyphAST, [GLYPH_WARNINGS.unsupportedMultipleSigils]);
   }
 
-  const primary = glyphAST.primarySigil;
+  const sigils = glyphAST.sigils ?? (glyphAST.primarySigil ? [glyphAST.primarySigil] : []);
+  const validSigils = sigils.filter((sigil) => sigil.recognized && sigil.element);
+  const primary = glyphAST.primarySigil ?? validSigils[0] ?? null;
+
   if (!primary) {
     return invalidSpell("Invalid spell", glyphAST, [GLYPH_WARNINGS.missingPrimarySigil]);
   }
@@ -190,14 +214,85 @@ export function compileSpell({ glyphAST, config }) {
   const direction = directionFromSurfaceVector(surfaceDirection, force);
   const gravity = calculateSpellGravity(manifestationInfluence);
 
+  const uniqueElements = [...new Set(validSigils.map((sigil) => sigil.element))];
+  const compoundElement = uniqueElements.length > 1 ? uniqueElements.sort().join("+") : null;
+
+  const ringEffects = (glyphAST.rings ?? [glyphAST.ring])
+    .filter(Boolean)
+    .map((ring) => {
+      const ringSignals = validSigils.filter((sigil) => sigil.ringId === ring.ringId);
+      const ringSigns = signs.filter((sign) => sign.ringId === ring.ringId);
+      if (!ringSignals.length) {
+        return null;
+      }
+
+      const localPrimary = ringSignals.sort((a, b) => b.confidence - a.confidence)[0];
+      const localSemantic = localPrimary.semantic ?? {};
+      const localManifestationData = aggregateManifestations(ringSigns);
+      const localDeltas = aggregateSemanticDeltas(ringSigns);
+      const localSurfaceDirection = ringSigns.length
+        ? combineSignDirection(ringSigns)
+        : { x: 0, y: 0, strength: 0 };
+      const localForce = clamp(
+        SPELL_PARAMETER_TUNING.forceBase +
+          (localSemantic.force ?? 0) +
+          ringSigns.reduce((sum, sign) => sum + signInfluence(sign), 0) * SPELL_PARAMETER_TUNING.forceSignPower +
+          localDeltas.force +
+          quality * SPELL_PARAMETER_TUNING.forceQuality
+      );
+      const localFocus = clamp(
+        SPELL_PARAMETER_TUNING.focusBase +
+          (localSemantic.focus ?? 0) +
+          localDeltas.focus +
+          quality * SPELL_PARAMETER_TUNING.focusQuality
+      );
+      const localSpread = clamp(
+        SPELL_PARAMETER_TUNING.spreadBase +
+          (localSemantic.spread ?? 0) +
+          localDeltas.spread +
+          (1 - localFocus) * SPELL_PARAMETER_TUNING.spreadInverseFocus
+      );
+      const localRange = clamp(
+        SPELL_PARAMETER_TUNING.rangeBase +
+          (localSemantic.range ?? 0) +
+          localDeltas.range +
+          ringSigns.reduce((sum, sign) => sum + signInfluence(sign), 0) * SPELL_PARAMETER_TUNING.rangeSignPower
+      );
+
+      return {
+        ringId: ring.ringId,
+        ringDepth: ring.depth,
+        element: localPrimary.element,
+        id: localPrimary.id,
+        elementConfidence: localPrimary.confidence,
+        primarySizeNorm: localPrimary.sizeNorm,
+        primaryManifestation: localManifestationData.primaryManifestation,
+        manifestations: localManifestationData.manifestations,
+        direction: directionFromSurfaceVector(localSurfaceDirection, localForce),
+        directionCoherence: localSurfaceDirection.strength ?? 0,
+        force: localForce,
+        spread: localSpread,
+        focus: localFocus,
+        range: localRange,
+        duration: calculateSpellDuration({ primarySemantic: localSemantic, deltas: localDeltas, quality, neatness }),
+        quality,
+        stability,
+        neatness: ring.neatness ?? neatness
+      };
+    })
+    .filter(Boolean);
+
   return {
     type: "SpellIR",
     active,
     prepared,
     valid: true,
-    status: active ? "Active spell" : "Prepared spell",
+    status: active ? (compoundElement ? `Active compound spell (${compoundElement})` : "Active spell") : "Prepared spell",
     activatedAt: active ? performance.now() : null,
     element: primary.element,
+    compoundElement,
+    sigils: validSigils.map(stripRecognitionDiagnostics),
+    ringEffects,
     elementConfidence: primary.confidence,
     primarySizeNorm: primary.sizeNorm,
     effectScale,
@@ -215,7 +310,7 @@ export function compileSpell({ glyphAST, config }) {
     quality,
     neatness,
     warnings: glyphAST.warnings ?? [],
-    signature: `${primary.id}:${manifestationSignature(manifestations)}:${active}:${Math.round(effectScale * 100)}:${Math.round(
+    signature: `${compoundElement ?? primary.id}:${manifestationSignature(manifestations)}:${active}:${Math.round(effectScale * 100)}:${Math.round(
       force * 100
     )}:${Math.round(spread * 100)}:${Math.round(duration * 100)}:${Math.round(direction.xTiltDeg)}:${Math.round(
       direction.yTiltDeg

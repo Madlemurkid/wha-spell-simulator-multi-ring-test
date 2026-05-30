@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { CONFIG } from "../src/config.js";
 import { classifyDrawing } from "../src/parser/drawingClassifier.js";
-import { detectRing } from "../src/parser/ringDetector.js";
+import { detectRing, detectRings } from "../src/parser/ringDetector.js";
 import { degreesToRadians } from "../src/utils/geometry.js";
 
 function arcStroke(id, centerX, centerY, radius, startDeg, endDeg, steps) {
@@ -85,6 +85,18 @@ test("reports multiple open rings as unsupported", () => {
   assert.equal(detected.complete, false);
   assert.equal(detected.activationEvent, false);
   assert.equal(detected.unsupportedMultipleRings.length, 1);
+});
+
+test("supports concentric nested rings for multi-layer layouts", () => {
+  const outerRing = openRingAt("s1", 400, 300, 180);
+  const innerRing = openRingAt("s2", 400, 300, 110);
+  const detected = detectRings([outerRing, innerRing], null, CONFIG);
+
+  assert.equal(detected.rings.length, 2);
+  assert.equal(detected.unsupportedMultipleRings.length, 0);
+  assert.equal(detected.rings[0].radius > detected.rings[1].radius, true);
+  assert.equal(detected.rings[0].ringId, "r1");
+  assert.equal(detected.rings[1].ringId, "r2");
 });
 
 test("does not activate when closing one of multiple rings", () => {

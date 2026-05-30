@@ -482,6 +482,28 @@ function distinctRingCandidates(candidates) {
   return distinct;
 }
 
+function isConcentricHierarchy(rings) {
+  if (rings.length < 2) {
+    return true;
+  }
+
+  const outer = rings[0];
+  return rings.every((ring) => {
+    const centerDistance = distance(ring.center, outer.center);
+    const averageRadius = Math.max(1, (ring.radius + outer.radius) / 2);
+    return centerDistance <= averageRadius * SAME_RING_CENTER_DISTANCE_RATIO;
+  });
+}
+
+function ringHierarchy(rings) {
+  return rings.map((ring, index) => ({
+    ...ring,
+    ringId: `r${index + 1}`,
+    depth: index,
+    parentRingId: index === 0 ? null : `r${index}`
+  }));
+}
+
 function summarizeUnsupportedRing(candidate) {
   return {
     center: candidate.center,
@@ -503,10 +525,10 @@ function summarizeUnsupportedRing(candidate) {
 // 3. If the filtered closure pass did not produce a closed candidate, run the
 //    flood-fill closure test against all strokes.
 // 4. Merge duplicate candidates for the same physical ring, prefer complete
-//    rings, and report any additional distinct rings as unsupported.
+//    rings, and support concentric nested rings where possible.
 // 5. Emit activation only for the transition from a prepared open ring to a
 //    sealed ring, not for rings that are already closed on first detection.
-export function detectRing(strokes, previousRing, config) {
+export function detectRings(strokes, previousRing, config) {
   const candidates = [];
 
   const openCandidates = buildOpenRingCandidates(strokes, config);
@@ -518,41 +540,57 @@ export function detectRing(strokes, previousRing, config) {
 
   if (!candidates.length) {
     return {
-      found: false,
-      complete: false,
-      completeness: 0,
-      activationEvent: false,
-      strokeIds: [],
+      rings: [],
+      unsupportedMultipleRings: [],
       unsupportedNestedRings: []
     };
   }
 
   candidates.sort((a, b) => Number(b.complete) - Number(a.complete) || b.score + b.radius * 0.001 - (a.score + a.radius * 0.001));
   const distinctRings = distinctRingCandidates(candidates);
-  const ring = distinctRings[0];
-  const unsupportedMultipleRings = distinctRings.slice(1).map(summarizeUnsupportedRing);
-  const unsupportedNestedRings = distinctRings
-    .slice(1)
-    .filter(
-      (candidate) =>
-        candidate.radius < ring.radius * 0.78 &&
-        candidate.roundness >= 0.68 &&
-        candidate.complete
-    )
-    .map(summarizeUnsupportedRing);
+  const sortedRings = [...distinctRings].sort((a, b) => b.radius - a.radius);
+  const nested = isConcentricHierarchy(sortedRings);
+
+  if (!nested) {
+    const ring = sortedRings[0];
+    const unsupportedMultipleRings = sortedRings.slice(1).map(summarizeUnsupportedRing);
+    return {
+      rings: [ring],
+      unsupportedMultipleRings,
+      unsupportedNestedRings: []
+    };
+  }
+
+  return {
+    rings: ringHierarchy(sortedRings),
+    unsupportedMultipleRings: [],
+    unsupportedNestedRings: []
+  };
+}
+
+export function detectRing(strokes, previousRing, config) {
+  const result = detectRings(strokes, previousRing, config);
+  const ring = result.rings[0] ?? {
+    found: false,
+    complete: false,
+    completeness: 0,
+    strokeIds: [],
+    unsupportedNestedRings: [],
+    unsupportedMultipleRings: []
+  };
 
   const activationEvent = Boolean(
-      previousRing?.found &&
+    previousRing?.found &&
       !previousRing.complete &&
       ring.complete &&
       previousRing.completeness >= ACTIVATION_COMPLETENESS_FLOOR &&
-      unsupportedMultipleRings.length === 0
+      (result.unsupportedMultipleRings?.length ?? 0) === 0
   );
 
   return {
     ...ring,
     activationEvent,
-    unsupportedNestedRings,
-    unsupportedMultipleRings
+    unsupportedMultipleRings: result.unsupportedMultipleRings ?? [],
+    unsupportedNestedRings: result.unsupportedNestedRings ?? []
   };
 }

@@ -399,3 +399,53 @@ test("rejects unsupported multiple sigils", () => {
   assert.equal(spellIR.status, "Multiple sigils detected");
   assert.ok(spellIR.warnings.includes(GLYPH_WARNINGS.unsupportedMultipleSigils));
 });
+
+test("compiles nested multi-sigil compound spells", () => {
+  const spellIR = compileSpell({
+    glyphAST: {
+      ...glyphAST({ ringComplete: true }),
+      rings: [
+        { found: true, complete: true, ringId: "r1", depth: 0, center: { x: 400, y: 300 }, radius: 180, neatness: 0.78 },
+        { found: true, complete: true, ringId: "r2", depth: 1, center: { x: 400, y: 300 }, radius: 110, neatness: 0.74 }
+      ],
+      sigils: [
+        {
+          candidateId: "c1",
+          id: "fire",
+          kind: "sigil",
+          recognized: true,
+          confidence: 0.92,
+          element: "fire",
+          sizeNorm: 0.24,
+          neatness: 0.8,
+          semantic: { force: 0.12, spread: 0.06, focus: 0.02, range: 0.04, lifetimeBias: 0 },
+          ringId: "r1",
+          ringDepth: 0
+        },
+        {
+          candidateId: "c2",
+          id: "water",
+          kind: "sigil",
+          recognized: true,
+          confidence: 0.88,
+          element: "water",
+          sizeNorm: 0.18,
+          neatness: 0.76,
+          semantic: { force: -0.02, spread: 0.12, focus: -0.04, range: 0.08, lifetimeBias: 0.08 },
+          ringId: "r2",
+          ringDepth: 1
+        }
+      ],
+      unsupportedMultipleSigils: [],
+      signs: [],
+      warnings: []
+    },
+    config: CONFIG
+  });
+
+  assert.equal(spellIR.valid, true);
+  assert.equal(spellIR.element, "fire");
+  assert.equal(spellIR.compoundElement, "fire+water");
+  assert.equal(spellIR.sigils.length, 2);
+  assert.equal(spellIR.ringEffects.length, 2);
+});

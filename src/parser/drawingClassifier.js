@@ -1,10 +1,10 @@
 import { cleanStrokes } from "./strokeCleaner.js";
-import { detectRing } from "./ringDetector.js";
+import { detectRings } from "./ringDetector.js";
 import { classifyStrokesAgainstRing } from "./coordinateNormalizer.js";
 import { buildSymbolCandidates } from "./strokeGrouper.js";
 import { recognizeCandidates } from "./symbolRecognizer.js";
 import { GLYPH_WARNINGS } from "./glyphWarnings.js";
-import { clamp, formatNumber, mean, vectorFromAngleDeg } from "../utils/geometry.js";
+import { clamp, formatNumber, mean, vectorFromAngleDeg, distance } from "../utils/geometry.js";
 
 function roundedDeep(value) {
   if (Array.isArray(value)) {
@@ -20,6 +20,107 @@ function roundedDeep(value) {
 function primarySigilScore(sigil) {
   const layerBonus = sigil.layer === "center" ? 0.12 : sigil.radiusNorm <= 0.45 ? 0.06 : 0;
   return sigil.confidence + layerBonus;
+}
+
+function averagePoint(points) {
+  const count = Math.max(1, points.length);
+  return {
+    x: points.reduce((sum, point) => sum + point.x, 0) / count,
+    y: points.reduce((sum, point) => sum + point.y, 0) / count
+  };
+}
+
+function findStrokeRingId(stroke, rings, config) {
+  if (!rings?.length) {
+    return null;
+  }
+
+  const centroid = averagePoint(stroke.points);
+  const innerFirst = [...rings].sort((a, b) => a.radius - b.radius);
+  const boundaryScale = config.layers.boundaryMax;
+
+  for (const ring of innerFirst) {
+    if (distance(centroid, ring.center) <= ring.radius * boundaryScale) {
+      return ring.ringId;
+    }
+  }
+
+  return null;
+}
+
+function classifyStrokesAgainstRings(strokes, rings, config) {
+  if (!rings?.length) {
+    return strokes.map((stroke) => ({
+      strokeId: stroke.id,
+      classification: "unbounded",
+      insideRatio: 0,
+      outsideRatio: 0,
+      boundaryRatio: 0,
+      usedByParser: false,
+      canJoinSymbol: false,
+      ringId: null,
+      ringDepth: -1
+    }));
+  }
+
+  const ringMap = new Map(rings.map((ring) => [ring.ringId, ring]));
+  const ringClassifications = new Map(
+    rings.map((ring) => [
+      ring.ringId,
+      new Map(
+        classifyStrokesAgainstRing(strokes, ring, config)
+          .map((classification) => ({
+            ...classification,
+            ringId: ring.ringId,
+            ringDepth: ring.depth
+          }))
+          .map((classification) => [classification.strokeId, classification])
+      )
+    ])
+  );
+
+  return strokes.map((stroke) => {
+    let ringId = null;
+
+    for (const ring of rings) {
+      const classification = ringClassifications.get(ring.ringId)?.get(stroke.id);
+      if (classification?.classification === "ring") {
+        ringId = ring.ringId;
+        break;
+      }
+    }
+
+    if (!ringId) {
+      ringId = findStrokeRingId(stroke, rings, config);
+    }
+
+    if (!ringId) {
+      return {
+        strokeId: stroke.id,
+        classification: "outside",
+        insideRatio: 0,
+        outsideRatio: 1,
+        boundaryRatio: 0,
+        usedByParser: false,
+        canJoinSymbol: false,
+        ringId: null,
+        ringDepth: -1
+      };
+    }
+
+    const classification = ringClassifications.get(ringId)?.get(stroke.id);
+    return classification ?? {
+      strokeId: stroke.id,
+      classification: "outside",
+      insideRatio: 0,
+      outsideRatio: 1,
+      boundaryRatio: 0,
+      usedByParser: false,
+      canJoinSymbol: false,
+      ringId,
+      ringDepth: ringMap.get(ringId)?.depth ?? -1
+    };
+  });
 }
 
 function recognizedSigils(recognitions) {
@@ -162,15 +263,27 @@ function warningList(ring, primarySigil, unsupportedMultipleSigils, unknowns, re
 
 export function classifyDrawing({ strokes, previousRing = null, dictionary, config }) {
   const cleanedStrokes = cleanStrokes(strokes, config);
-  const ring = detectRing(cleanedStrokes, previousRing, config);
+  const ringResult = detectRings(cleanedStrokes, previousRing, config);
+  const rings = ringResult.rings;
+  const ring = rings[0] ?? {
+    found: false,
+    complete: false,
+    completeness: 0,
+    activationEvent: false,
+    strokeIds: [],
+    unsupportedNestedRings: [],
+    unsupportedMultipleRings: []
+  };
 
   if (!ring.found) {
     const glyphAST = {
       type: "GlyphAST",
       version: config.appVersion,
+      rings: [],
       ring,
       candidates: [],
       primarySigil: null,
+      sigils: [],
       unsupportedMultipleSigils: [],
       signs: [],
       unknowns: [],
@@ -191,14 +304,30 @@ export function classifyDrawing({ strokes, previousRing = null, dictionary, conf
     };
   }
 
-  const classifications = classifyStrokesAgainstRing(cleanedStrokes, ring, config);
-  const candidates = buildSymbolCandidates(cleanedStrokes, classifications, ring, config);
+  const classifications = classifyStrokesAgainstRings(cleanedStrokes, rings, config);
+  const candidates = rings.flatMap((ring) => {
+    const ringClassifications = classifications.filter((classification) => classification.ringId === ring.ringId);
+    const ringStrokeIds = new Set(ringClassifications.map((classification) => classification.strokeId));
+    const ringStrokes = cleanedStrokes.filter((stroke) => ringStrokeIds.has(stroke.id));
+    return buildSymbolCandidates(ringStrokes, ringClassifications, ring, config);
+  });
+
   const recognitions = recognizeCandidates(candidates, dictionary, config);
   const sigils = recognizedSigils(recognitions);
-  const primarySigil = selectPrimarySigil(sigils);
-  const unsupportedMultipleSigils = sigils
-    .filter((recognition) => recognition.candidateId !== primarySigil?.candidateId)
-    .map(stripRecognitionDiagnostics);
+  const supportedSigils = [];
+  const unsupportedMultipleSigils = [];
+  const seenRingIds = new Set();
+
+  for (const sigil of sigils) {
+    if (sigil.ringId && !seenRingIds.has(sigil.ringId)) {
+      seenRingIds.add(sigil.ringId);
+      supportedSigils.push(sigil);
+    } else {
+      unsupportedMultipleSigils.push(stripRecognitionDiagnostics(sigil));
+    }
+  }
+
+  const primarySigil = selectPrimarySigil(supportedSigils);
   const signs = recognitions
     .filter((recognition) => recognition.recognized && recognition.kind === "sign")
     .map(stripRecognitionDiagnostics);
@@ -209,9 +338,11 @@ export function classifyDrawing({ strokes, previousRing = null, dictionary, conf
   const glyphAST = roundedDeep({
     type: "GlyphAST",
     version: config.appVersion,
+    rings,
     ring,
     candidates: candidates.map(stripCandidate),
     primarySigil: stripRecognitionDiagnostics(primarySigil),
+    sigils: sigils.map(stripRecognitionDiagnostics),
     unsupportedMultipleSigils,
     signs,
     unknowns,

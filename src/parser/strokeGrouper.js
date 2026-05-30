@@ -81,7 +81,9 @@ function buildCandidate(strokes, index, ring, config) {
   const closedness = endpointClosedness(strokes, Math.max(1, size));
 
   return {
-    candidateId: `c${index + 1}`,
+    candidateId: `${ring.ringId}-c${index + 1}`,
+    ringId: ring.ringId,
+    ringDepth: ring.depth,
     strokeIds: strokes.map((stroke) => stroke.id),
     rawStrokeCount: strokes.length,
     cleanedStrokeCount: strokes.length,
