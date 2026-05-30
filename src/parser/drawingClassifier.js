@@ -234,6 +234,36 @@ function flattenRingTree(rings) {
   return nodes;
 }
 
+export function buildGlyphAST({ rings, ring, ringTree, candidates, recognitions, config }) {
+  const sigils = recognizedSigils(recognitions);
+  const supportedSigils = sigils;
+  const unsupportedMultipleSigils = [];
+  const ringTreeData = buildRingTreeData(ringTree, candidates, recognitions);
+  const primarySigil = selectPrimarySigil(supportedSigils);
+  const signs = recognitions
+    .filter((recognition) => recognition.recognized && recognition.kind === "sign")
+    .map(stripRecognitionDiagnostics);
+  const unknowns = summarizeUnknowns(candidates, recognitions);
+  const globalMetrics = calculateGlobalMetrics(ring, recognitions, unknowns);
+  const warnings = warningList(ring, primarySigil, unsupportedMultipleSigils, unknowns, recognitions);
+
+  return roundedDeep({
+    type: "GlyphAST",
+    version: config.appVersion,
+    rings,
+    ring,
+    ringTree: ringTreeData,
+    candidates: candidates.map(stripCandidate),
+    primarySigil: stripRecognitionDiagnostics(primarySigil),
+    sigils: sigils.map(stripRecognitionDiagnostics),
+    unsupportedMultipleSigils,
+    signs,
+    unknowns,
+    globalMetrics,
+    warnings
+  });
+}
+
 function buildRingTreeData(rings, candidates, recognitions) {
   const byRingId = new Map(rings.map((ring) => [ring.ringId, { ...ring, candidates: [], sigils: [], signs: [] }]));
   const recognitionMap = new Map(recognitions.map((recognition) => [recognition.candidateId, recognition]));
@@ -364,33 +394,7 @@ export function classifyDrawing({ strokes, previousRing = null, dictionary, conf
   });
 
   const recognitions = recognizeCandidates(candidates, dictionary, config);
-  const sigils = recognizedSigils(recognitions);
-  const supportedSigils = sigils;
-  const unsupportedMultipleSigils = [];
-  const ringTreeData = buildRingTreeData(ringTree, candidates, recognitions);
-  const primarySigil = selectPrimarySigil(supportedSigils);
-  const signs = recognitions
-    .filter((recognition) => recognition.recognized && recognition.kind === "sign")
-    .map(stripRecognitionDiagnostics);
-  const unknowns = summarizeUnknowns(candidates, recognitions);
-  const globalMetrics = calculateGlobalMetrics(ring, recognitions, unknowns);
-  const warnings = warningList(ring, primarySigil, unsupportedMultipleSigils, unknowns, recognitions);
-
-  const glyphAST = roundedDeep({
-    type: "GlyphAST",
-    version: config.appVersion,
-    rings,
-    ring,
-    ringTree: ringTreeData,
-    candidates: candidates.map(stripCandidate),
-    primarySigil: stripRecognitionDiagnostics(primarySigil),
-    sigils: sigils.map(stripRecognitionDiagnostics),
-    unsupportedMultipleSigils,
-    signs,
-    unknowns,
-    globalMetrics,
-    warnings
-  });
+  const glyphAST = buildGlyphAST({ rings, ring, ringTree, candidates, recognitions, config });
 
   return {
     cleanedStrokes,

@@ -278,6 +278,15 @@ body:not(.sigil-maker-page) .app-shell {
   margin-bottom: 14px;
 }
 
+.control-field {
+  display: grid;
+  gap: 8px;
+}
+
+.control-field input[type="range"] {
+  width: 100%;
+}
+
 .panel-section-title {
   margin: 10px 0 10px;
   font-family: "Cinzel", serif;

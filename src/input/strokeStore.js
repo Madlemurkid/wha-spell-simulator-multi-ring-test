@@ -37,6 +37,17 @@ export function createStrokeStore() {
       }));
     },
 
+    scaleAroundPoint(scaleX, scaleY, center) {
+      strokes = strokes.map((stroke) => ({
+        ...stroke,
+        points: stroke.points.map((point) => ({
+          ...point,
+          x: center.x + (point.x - center.x) * scaleX,
+          y: center.y + (point.y - center.y) * scaleY
+        }))
+      }));
+    },
+
     getStrokes() {
       return strokes.map((stroke) => ({
         ...stroke,
