@@ -454,6 +454,10 @@ body:not(.sigil-maker-page) .app-shell {
   opacity: 0;
 }
 
+.hidden {
+  display: none !important;
+}
+
 #glyphCanvas.locked {
   cursor: not-allowed;
 }
