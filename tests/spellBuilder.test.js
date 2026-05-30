@@ -196,6 +196,48 @@ test("compiles a left-side column sign as rightward flow", () => {
   assert.ok(spellIR.direction.z > 0);
 });
 
+test("compiles a generic pull sign as a valid manifestation", () => {
+  const spellIR = compileSpell({
+    glyphAST: glyphAST({
+      ringComplete: true,
+      signs: [
+        {
+          id: "pull",
+          confidence: 0.94,
+          neatness: 0.9,
+          sizeNorm: 0.16,
+          lengthNorm: 0.18,
+          layer: "outer",
+          radiusNorm: 0.82,
+          angleDeg: 180,
+          orientationDeg: 180,
+          directedOrientationDeg: 180,
+          radialFacing: "outward",
+          shape: {
+            axisDominance: 0.32,
+            strokeLengthImbalance: 0.14,
+            elongationNorm: 0.17
+          },
+          semantic: {
+            manifestation: "pull",
+            directionMode: "position",
+            force: 0.16,
+            focus: 0.02,
+            spread: -0.08,
+            range: 0.18,
+            lifetimeBias: 0.02
+          }
+        }
+      ]
+    }),
+    config: CONFIG
+  });
+
+  assert.equal(spellIR.valid, true);
+  assert.equal(spellIR.primaryManifestation, "pull");
+  assert.ok(spellIR.manifestations.pull.strength > 0);
+});
+
 test("compiles balanced levitation signs as zero-gravity suspension", () => {
   const levitationSigns = [0, 90, 180, 270].map((angleDeg) => ({
     id: "levitation",

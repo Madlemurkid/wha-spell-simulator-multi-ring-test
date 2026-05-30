@@ -49,7 +49,9 @@ function recognitionThresholds(config) {
   const recognition = config.recognition ?? {};
   return {
     minConfidence: recognition.minConfidence ?? 0.48,
-    ambiguityGap: RECOGNITION_AMBIGUITY_GAP
+    minSigilConfidence: recognition.minSigilConfidence ?? recognition.minConfidence ?? 0.48,
+    ambiguityGap: RECOGNITION_AMBIGUITY_GAP,
+    sigilAmbiguityGap: 0.045
   };
 }
 
@@ -202,23 +204,23 @@ function structuralCompatibility(kind, entry, candidate, features, templateMatch
   };
 }
 
-function isContaminatedMatch(candidate, best) {
+function isContaminatedMatch(candidate, best, kind) {
   const templateMatch = best?.templateMatch;
   if (!templateMatch) {
     return false;
   }
 
   const highRiskExtraInk =
-    templateMatch.contaminationRisk >= 0.62 &&
-    templateMatch.unexplainedInkRatio >= 0.34;
+    templateMatch.contaminationRisk >= (kind === "sigil" ? 0.72 : 0.62) &&
+    templateMatch.unexplainedInkRatio >= (kind === "sigil" ? 0.42 : 0.34);
   const oversizedWeakMatch =
     candidate.sizeNorm >= 0.42 &&
-    templateMatch.unexplainedInkRatio >= 0.26 &&
-    best.confidence < 0.7;
+    templateMatch.unexplainedInkRatio >= (kind === "sigil" ? 0.32 : 0.26) &&
+    best.confidence < (kind === "sigil" ? 0.75 : 0.7);
   const wrongRegionInk =
-    templateMatch.forbiddenCellInkRatio >= 0.42 &&
-    templateMatch.requiredCellCoverage <= 0.82 &&
-    best.confidence < 0.72;
+    templateMatch.forbiddenCellInkRatio >= (kind === "sigil" ? 0.5 : 0.42) &&
+    templateMatch.requiredCellCoverage <= (kind === "sigil" ? 0.84 : 0.82) &&
+    best.confidence < (kind === "sigil" ? 0.76 : 0.72);
 
   return highRiskExtraInk || oversizedWeakMatch || wrongRegionInk;
 }
@@ -236,14 +238,16 @@ function isMessyMatch(candidate, best) {
   );
 }
 
-function recognitionStatus(candidate, best, second, secondSameKind, accepted, thresholds) {
+function recognitionStatus(candidate, best, second, secondSameKind, accepted, thresholds, kind) {
   if (!best) {
     return "unknown";
   }
-  if (isContaminatedMatch(candidate, best)) {
+  if (isContaminatedMatch(candidate, best, kind)) {
     return "contaminated";
   }
-  if (best.structuralMatch?.score < 0.42 && best.confidence < 0.7) {
+  const structuralThreshold = kind === "sigil" ? 0.36 : 0.42;
+  const confidenceThreshold = kind === "sigil" ? 0.65 : 0.7;
+  if (best.structuralMatch?.score < structuralThreshold && best.confidence < confidenceThreshold) {
     return "ambiguous";
   }
   if (!accepted) {
@@ -256,7 +260,8 @@ function recognitionStatus(candidate, best, second, secondSameKind, accepted, th
     bestInk.inkScore >= 0.92 &&
     bestInk.candidateExplainedRatio >= 0.98 &&
     bestInk.templateCoveredRatio >= 0.98;
-  if (!clearInkIdentity && best.confidence - competitor < thresholds.ambiguityGap) {
+  const ambiguityGap = kind === "sigil" ? thresholds.sigilAmbiguityGap : thresholds.ambiguityGap;
+  if (!clearInkIdentity && best.confidence - competitor < ambiguityGap) {
     return "ambiguous";
   }
   if (isMessyMatch(candidate, best)) {
@@ -385,8 +390,17 @@ export function recognizeCandidates(candidates, dictionary, config) {
         entry: null,
         kind: null
       };
-    const acceptedByConfidence = Boolean(best && best.confidence >= thresholds.minConfidence);
-    const status = recognitionStatus(candidate, best, second, secondSameKind, acceptedByConfidence, thresholds);
+    const requiredConfidence = best?.kind === "sigil" ? thresholds.minSigilConfidence : thresholds.minConfidence;
+    const acceptedByConfidence = Boolean(best && best.confidence >= requiredConfidence);
+    const status = recognitionStatus(
+      candidate,
+      best,
+      second,
+      secondSameKind,
+      acceptedByConfidence,
+      thresholds,
+      best?.kind
+    );
     const accepted = acceptedByConfidence && (status === "valid" || status === "valid_messy");
     const bestTemplateMatch = best?.templateMatch ?? null;
     const bestStructuralMatch = best?.structuralMatch ?? null;

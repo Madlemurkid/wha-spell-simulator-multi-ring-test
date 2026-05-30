@@ -90,7 +90,15 @@ export function updateSummary({ elements, store, capture, pipeline, spellIR }) {
   elements.undoButton.disabled = undoLocked || store.count() === 0;
   elements.glyphCanvas.classList.toggle("locked", inputLocked);
   elements.canvasShell.classList.toggle("portal-active", Boolean(spellIR?.active)); // tilting the paper angle
-  elements.canvasHint.classList.toggle("hidden", store.count() > 0 || !elements.guidesToggle.checked);
+
+  const hasMessyHint = Boolean(pipeline?.glyphAST?.warnings?.includes(GLYPH_WARNINGS.symbolMessy));
+  const defaultHint = elements.canvasHint.dataset.defaultHint ?? elements.canvasHint.textContent;
+  const canvasHintText = hasMessyHint
+    ? "Messy sigil accepted — rough central symbols can still work. Seal the ring when you're ready."
+    : defaultHint;
+  elements.canvasHint.textContent = canvasHintText;
+  const showHint = elements.guidesToggle.checked && (!store.count() || hasMessyHint);
+  elements.canvasHint.classList.toggle("hidden", !showHint);
 
   if (capture) {
     capture.setLocked(inputLocked);

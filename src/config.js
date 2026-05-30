@@ -31,15 +31,17 @@ export const CONFIG = {
     boundaryMax: 1.06,
 
     // 0..1 normalized radius; marks symbols close to layer edges as ambiguous.
-    boundaryTolerance: 0.055
+    boundaryTolerance: 0.08
   },
   recognition: {
-    // 0..1 final recognizer score floor.
-    minConfidence: 0.48
+    // 0..1 final recognizer score floor for signs and most symbols.
+    minConfidence: 0.48,
+    // 0..1 final recognizer score floor for sigils, to make central magic symbol recognition more forgiving.
+    minSigilConfidence: 0.38
   },
   compiler: {
     // 0..1 confidence; minimum primary sigil confidence before a spell is valid.
-    minimumPrimarySigilConfidence: 0.62,
+    minimumPrimarySigilConfidence: 0.52,
 
     // Count; unknown symbols above this increase instability.
     maxUnknownsBeforeInstability: 4

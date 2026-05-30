@@ -51,6 +51,21 @@ Current sign ids:
 - `column`
 - `levitation`
 - `convergence`
+- `pull`
+- `crush`
+- `float`
+- `region`
+- `collection`
+- `billow`
+- `repetition`
+- `weave`
+- `cool`
+- `strengthen`
+- `sights-set`
+- `entwine`
+- `gather`
+- `glaives`
+- `dispersion`
 
 ### Sample Spells
 

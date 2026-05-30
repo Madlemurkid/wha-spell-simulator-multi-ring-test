@@ -92,5 +92,390 @@
         [{"x": 0.52,"y": 0.95}, {"x": 0.5201,"y": 0.95}, {"x": 0.52,"y": 0.9501}]
       ]
     }
+  },
+  {
+    "id": "pull",
+    "displayName": "Pull",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Pull draws the spell's force toward the sign location, making the effect bend and reach inward from the edge of the ring.",
+    "semantic": {
+      "manifestation": "pull",
+      "directionMode": "position",
+      "force": 0.16,
+      "focus": 0.02,
+      "spread": -0.08,
+      "range": 0.18,
+      "lifetimeBias": 0.02
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.5,"y": 0.15}, {"x": 0.5,"y": 0.75}],
+        [{"x": 0.42,"y": 0.62}, {"x": 0.5,"y": 0.75}],
+        [{"x": 0.58,"y": 0.62}, {"x": 0.5,"y": 0.75}]
+      ]
+    }
+  },
+  {
+    "id": "crush",
+    "displayName": "Crush",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Crush focuses the spell's power into a compact, forceful impact, compressing energy toward a tight point.",
+    "semantic": {
+      "manifestation": "crush",
+      "directionMode": "inward",
+      "force": 0.24,
+      "focus": 0.12,
+      "spread": -0.18,
+      "range": 0.04,
+      "lifetimeBias": 0.04
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.5,"y": 0.2}, {"x": 0.5,"y": 0.7}],
+        [{"x": 0.3,"y": 0.65}, {"x": 0.5,"y": 0.2}, {"x": 0.7,"y": 0.65}]
+      ]
+    }
+  },
+  {
+    "id": "float",
+    "displayName": "Float",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Float lets the spell hover or drift freely, often making the effect feel light and airy.",
+    "semantic": {
+      "manifestation": "float",
+      "directionMode": "orientation",
+      "force": 0.06,
+      "focus": -0.06,
+      "spread": 0.16,
+      "range": 0.02,
+      "lifetimeBias": 0.24
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.35,"y": 0.35}, {"x": 0.4,"y": 0.27}, {"x": 0.5,"y": 0.2}, {"x": 0.6,"y": 0.27}, {"x": 0.65,"y": 0.35}, {"x": 0.62,"y": 0.45}, {"x": 0.55,"y": 0.52}, {"x": 0.45,"y": 0.52}, {"x": 0.38,"y": 0.45}, {"x": 0.35,"y": 0.35}]
+      ]
+    }
+  },
+  {
+    "id": "region",
+    "displayName": "Region",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Region expands the spell into a broader area, making it cover more of the ring at the expense of concentration.",
+    "semantic": {
+      "manifestation": "region",
+      "directionMode": "position",
+      "force": 0.02,
+      "focus": -0.08,
+      "spread": 0.22,
+      "range": 0.12,
+      "lifetimeBias": 0
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.28,"y": 0.3}, {"x": 0.72,"y": 0.3}],
+        [{"x": 0.72,"y": 0.3}, {"x": 0.72,"y": 0.7}],
+        [{"x": 0.72,"y": 0.7}, {"x": 0.28,"y": 0.7}],
+        [{"x": 0.28,"y": 0.7}, {"x": 0.28,"y": 0.3}]
+      ]
+    }
+  },
+  {
+    "id": "collection",
+    "displayName": "Collection",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Collection draws elements together, gathering the spell's energy into a compact cluster.",
+    "semantic": {
+      "manifestation": "collection",
+      "directionMode": "position",
+      "force": 0.04,
+      "focus": 0.14,
+      "spread": -0.14,
+      "range": 0.02,
+      "lifetimeBias": 0.1
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.4,"y": 0.45}, {"x": 0.45,"y": 0.38}, {"x": 0.52,"y": 0.42}, {"x": 0.48,"y": 0.5}, {"x": 0.42,"y": 0.52}, {"x": 0.4,"y": 0.45}],
+        [{"x": 0.56,"y": 0.55}, {"x": 0.6,"y": 0.5}, {"x": 0.58,"y": 0.45}],
+        [{"x": 0.32,"y": 0.55}, {"x": 0.35,"y": 0.5}, {"x": 0.33,"y": 0.45}]
+      ]
+    }
+  },
+  {
+    "id": "billow",
+    "displayName": "Billow",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Billow makes the spell rise and spread like smoke or fog, softening sharp impacts.",
+    "semantic": {
+      "manifestation": "billow",
+      "directionMode": "position",
+      "force": -0.06,
+      "focus": -0.18,
+      "spread": 0.28,
+      "range": 0.08,
+      "lifetimeBias": 0.04
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.24,"y": 0.44}, {"x": 0.32,"y": 0.38}, {"x": 0.4,"y": 0.41}, {"x": 0.48,"y": 0.36}, {"x": 0.56,"y": 0.39}, {"x": 0.64,"y": 0.34}, {"x": 0.72,"y": 0.38}],
+        [{"x": 0.3,"y": 0.52}, {"x": 0.38,"y": 0.48}, {"x": 0.46,"y": 0.52}, {"x": 0.54,"y": 0.47}, {"x": 0.62,"y": 0.52}]
+      ]
+    }
+  },
+  {
+    "id": "repetition",
+    "displayName": "Repetition",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Repetition reinforces the spell by repeating its pattern, often extending duration and consistency.",
+    "semantic": {
+      "manifestation": "repetition",
+      "directionMode": "position",
+      "force": 0.06,
+      "focus": 0.16,
+      "spread": -0.08,
+      "range": 0.06,
+      "lifetimeBias": -0.02
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.35,"y": 0.26}, {"x": 0.35,"y": 0.74}],
+        [{"x": 0.5,"y": 0.26}, {"x": 0.5,"y": 0.74}],
+        [{"x": 0.65,"y": 0.26}, {"x": 0.65,"y": 0.74}]
+      ]
+    }
+  },
+  {
+    "id": "weave",
+    "displayName": "Weave",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Weave interlaces the spell's force, making effects interact more smoothly and tightly.",
+    "semantic": {
+      "manifestation": "weave",
+      "directionMode": "position",
+      "force": 0.08,
+      "focus": 0.18,
+      "spread": -0.12,
+      "range": 0.04,
+      "lifetimeBias": 0.02
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.3,"y": 0.3}, {"x": 0.7,"y": 0.7}],
+        [{"x": 0.3,"y": 0.7}, {"x": 0.7,"y": 0.3}],
+        [{"x": 0.5,"y": 0.3}, {"x": 0.5,"y": 0.7}],
+        [{"x": 0.3,"y": 0.5}, {"x": 0.7,"y": 0.5}]
+      ]
+    }
+  },
+  {
+    "id": "cool",
+    "displayName": "Cool",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Cool lowers the spell's heat and sharpness, making effects calmer and slower.",
+    "semantic": {
+      "manifestation": "cool",
+      "directionMode": "position",
+      "force": -0.08,
+      "focus": 0.06,
+      "spread": 0.18,
+      "range": 0.02,
+      "lifetimeBias": 0.12
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.5,"y": 0.24}, {"x": 0.44,"y": 0.38}, {"x": 0.46,"y": 0.51}, {"x": 0.54,"y": 0.51}, {"x": 0.56,"y": 0.38}, {"x": 0.5,"y": 0.24}]
+      ]
+    }
+  },
+  {
+    "id": "strengthen",
+    "displayName": "Strengthen",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Strengthen boosts the spell's underlying power, making its effect more potent and stable.",
+    "semantic": {
+      "manifestation": "strengthen",
+      "directionMode": "position",
+      "force": 0.2,
+      "focus": 0.1,
+      "spread": -0.1,
+      "range": 0.08,
+      "lifetimeBias": 0.06
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.5,"y": 0.22}, {"x": 0.5,"y": 0.78}],
+        [{"x": 0.3,"y": 0.5}, {"x": 0.7,"y": 0.5}]
+      ]
+    }
+  },
+  {
+    "id": "sights-set",
+    "displayName": "Sights Set",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Sights Set aligns the spell, improving targeting and precision while narrowing its effect.",
+    "semantic": {
+      "manifestation": "sights-set",
+      "directionMode": "orientation",
+      "force": 0.1,
+      "focus": 0.2,
+      "spread": -0.05,
+      "range": 0.1,
+      "lifetimeBias": 0
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.5,"y": 0.22}, {"x": 0.5,"y": 0.78}],
+        [{"x": 0.22,"y": 0.5}, {"x": 0.78,"y": 0.5}],
+        [{"x": 0.5,"y": 0.33}, {"x": 0.5,"y": 0.38}],
+        [{"x": 0.5,"y": 0.62}, {"x": 0.5,"y": 0.67}]
+      ]
+    }
+  },
+  {
+    "id": "entwine",
+    "displayName": "Entwine",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Entwine binds the spell's paths together, making different parts of the effect interact more closely.",
+    "semantic": {
+      "manifestation": "entwine",
+      "directionMode": "position",
+      "force": 0.08,
+      "focus": 0.14,
+      "spread": -0.1,
+      "range": 0.06,
+      "lifetimeBias": 0.04
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.48,"y": 0.28}, {"x": 0.52,"y": 0.28}, {"x": 0.58,"y": 0.32}, {"x": 0.58,"y": 0.4}, {"x": 0.52,"y": 0.48}, {"x": 0.48,"y": 0.48}, {"x": 0.42,"y": 0.4}, {"x": 0.42,"y": 0.32}, {"x": 0.48,"y": 0.28}]
+      ]
+    }
+  },
+  {
+    "id": "gather",
+    "displayName": "Gather",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Gather draws disparate energies toward a central point, concentrating the spell into a stronger core.",
+    "semantic": {
+      "manifestation": "gather",
+      "directionMode": "inward",
+      "force": 0.1,
+      "focus": 0.08,
+      "spread": -0.22,
+      "range": 0.02,
+      "lifetimeBias": 0.1
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.18,"y": 0.65}, {"x": 0.5,"y": 0.25}],
+        [{"x": 0.82,"y": 0.65}, {"x": 0.5,"y": 0.25}],
+        [{"x": 0.5,"y": 0.25}, {"x": 0.5,"y": 0.7}]
+      ]
+    }
+  },
+  {
+    "id": "glaives",
+    "displayName": "Glaives",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Glaives pierce and slice the spell's output, adding a precise, blade-like character to the effect.",
+    "semantic": {
+      "manifestation": "glaives",
+      "directionMode": "orientation",
+      "force": 0.14,
+      "focus": 0.08,
+      "spread": 0.04,
+      "range": 0.12,
+      "lifetimeBias": 0.02
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.4,"y": 0.25}, {"x": 0.5,"y": 0.45}, {"x": 0.6,"y": 0.25}],
+        [{"x": 0.4,"y": 0.5}, {"x": 0.5,"y": 0.7}, {"x": 0.6,"y": 0.5}],
+        [{"x": 0.5,"y": 0.17}, {"x": 0.5,"y": 0.83}]
+      ]
+    }
+  },
+  {
+    "id": "dispersion",
+    "displayName": "Dispersion",
+    "allowedLayers": [
+      "middle",
+      "outer"
+    ],
+    "sourceNotes": "Dispersion scatters the spell across a wider area, favoring spread over concentrated impact.",
+    "semantic": {
+      "manifestation": "dispersion",
+      "directionMode": "position",
+      "force": -0.04,
+      "focus": -0.12,
+      "spread": 0.3,
+      "range": 0.1,
+      "lifetimeBias": -0.02
+    },
+    "strokeTemplate": {
+      "sourceAspectRatio": 1,
+      "strokes": [
+        [{"x": 0.25,"y": 0.25}, {"x": 0.35,"y": 0.35}],
+        [{"x": 0.75,"y": 0.25}, {"x": 0.65,"y": 0.35}],
+        [{"x": 0.25,"y": 0.75}, {"x": 0.35,"y": 0.65}],
+        [{"x": 0.75,"y": 0.75}, {"x": 0.65,"y": 0.65}]
+      ]
+    }
   }
 ]
