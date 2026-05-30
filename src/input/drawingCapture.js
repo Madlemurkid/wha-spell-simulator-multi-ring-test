@@ -11,7 +11,8 @@ export class DrawingCapture {
     this.pointerId = null;
     this.enabled = false;
     this.locked = false;
-    this.zoom = 1;
+    this.viewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+    this.lastCanvasPoint = null;
 
     this.handlePointerDown = this.handlePointerDown.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
@@ -59,23 +60,28 @@ export class DrawingCapture {
     this.pointerId = null;
   }
 
-  setZoom(zoom) {
-    this.zoom = Math.max(0.1, Number(zoom) || 1);
+  setViewTransform(transform) {
+    this.viewTransform = {
+      scale: Math.max(0.1, Number(transform.scale) || 1),
+      offsetX: Number(transform.offsetX) || 0,
+      offsetY: Number(transform.offsetY) || 0
+    };
   }
 
-  mapZoomedPoint(point) {
-    if (this.zoom === 1) {
+  getLastCanvasPoint() {
+    return this.lastCanvasPoint ? { ...this.lastCanvasPoint } : null;
+  }
+
+  mapPoint(point) {
+    const { scale, offsetX, offsetY } = this.viewTransform;
+    if (scale === 1 && offsetX === 0 && offsetY === 0) {
       return point;
     }
-
-    const center = {
-      x: this.canvas.width / 2,
-      y: this.canvas.height / 2
-    };
-
     return {
-      x: center.x + (point.x - center.x) * this.zoom,
-      y: center.y + (point.y - center.y) * this.zoom
+      x: (point.x - offsetX) / scale,
+      y: (point.y - offsetY) / scale,
+      pressure: point.pressure,
+      t: point.t
     };
   }
 
@@ -88,9 +94,11 @@ export class DrawingCapture {
       return;
     }
     event.preventDefault();
+    const rawPoint = canvasPointFromEvent(event, this.canvas);
+    this.lastCanvasPoint = { x: rawPoint.x, y: rawPoint.y };
     this.pointerId = event.pointerId;
     this.canvas.setPointerCapture?.(event.pointerId);
-    this.currentPoints = [this.mapZoomedPoint(canvasPointFromEvent(event, this.canvas))];
+    this.currentPoints = [this.mapPoint(rawPoint)];
     this.callbacks.onPreview?.(this.getCurrentStroke());
   }
 
@@ -99,11 +107,13 @@ export class DrawingCapture {
       event.preventDefault();
       return;
     }
+    const rawPoint = canvasPointFromEvent(event, this.canvas);
+    this.lastCanvasPoint = { x: rawPoint.x, y: rawPoint.y };
     if (this.pointerId !== event.pointerId) {
       return;
     }
     event.preventDefault();
-    const point = this.mapZoomedPoint(canvasPointFromEvent(event, this.canvas));
+    const point = this.mapPoint(rawPoint);
     if (shouldKeepPoint(this.currentPoints, point, this.config.input.minPointDistance)) {
       this.currentPoints.push(point);
       this.callbacks.onPreview?.(this.getCurrentStroke());

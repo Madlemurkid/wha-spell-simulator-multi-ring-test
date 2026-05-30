@@ -21,8 +21,12 @@ let pipeline = null;
 let spellIR = null;
 let previousRing = null;
 let resizeObserver = null;
-let currentZoom = 1;
+let currentViewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
 let askOnAmbiguousRecognition = false;
+let pendingAmbiguousCandidate = null;
+let resolvedAmbiguousCandidateIds = new Set();
+let promptedAmbiguousCandidateIds = new Set();
+let skipAmbiguousOnNextRecompute = false;
 
 function setupCanvasSizing() {
   resizeObserver = setupResponsiveCanvasSizing({
@@ -35,70 +39,136 @@ function setupCanvasSizing() {
   });
 }
 
-async function resolveAmbiguousRecognitions(currentPipeline) {
-  if (!askOnAmbiguousRecognition || !currentPipeline?.recognitions?.length) {
-    return currentPipeline;
+function updateViewTransform({ scale, offsetX, offsetY }) {
+  currentViewTransform.scale = scale;
+  currentViewTransform.offsetX = offsetX;
+  currentViewTransform.offsetY = offsetY;
+  capture?.setViewTransform(currentViewTransform);
+}
+
+function resetViewTransform() {
+  currentViewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+  capture?.setViewTransform(currentViewTransform);
+}
+
+function showAmbiguityPanel(recognition) {
+  if (!elements.ambiguityPanel || !elements.ambiguityOptions) {
+    return;
   }
 
-  const ambiguousCandidates = currentPipeline.recognitions.filter(
-    (recognition) => recognition.recognitionStatus === "ambiguous"
-  );
-  if (!ambiguousCandidates.length) {
-    return currentPipeline;
-  }
+  pendingAmbiguousCandidate = recognition;
+  elements.ambiguityMessage.textContent = `Ambiguous symbol near radius ${Math.round(
+    recognition.radiusNorm * 100
+  )}%: choose the best match.`;
+  elements.ambiguityOptions.innerHTML = "";
 
-  let madeChoice = false;
-  for (const recognition of ambiguousCandidates) {
-    const topMatches = recognition.diagnostics?.topMatches?.slice(0, 4) ?? [];
-    if (!topMatches.length) {
-      continue;
-    }
-
-    const optionsText = topMatches
-      .map(
-        (match, index) =>
-          `${index + 1}) ${match.kind} ${match.id} (${Math.round(match.confidence * 100)}%)`
-      )
-      .join("\n");
-    const promptText =
-      `Ambiguous symbol detected in layer ${recognition.layer} near radius ${Math.round(
-        recognition.radiusNorm * 100
-      )}%. Choose the best match or leave blank to keep the current unknown result:\n\n${optionsText}`;
-    const selection = window.prompt(promptText, "1");
-    const choice = Number(selection) - 1;
-    if (!Number.isFinite(choice) || choice < 0 || choice >= topMatches.length) {
-      continue;
-    }
-
-    const selected = topMatches[choice];
-    const entry = dictionary[`${selected.kind}s`]?.find((item) => item.id === selected.id);
-    if (!entry) {
-      continue;
-    }
-
-    recognition.recognized = true;
-    recognition.kind = selected.kind;
-    recognition.id = entry.id;
-    recognition.displayName = entry.displayName ?? entry.id;
-    recognition.element = entry.element ?? null;
-    recognition.semantic = entry.semantic ?? null;
-    recognition.confidence = selected.confidence;
-    recognition.diagnostics.bestGuess = selected;
-    recognition.recognitionStatus = "valid";
-    madeChoice = true;
-  }
-
-  if (madeChoice) {
-    currentPipeline.glyphAST = buildGlyphAST({
-      rings: currentPipeline.glyphAST.rings,
-      ring: currentPipeline.glyphAST.ring,
-      ringTree: currentPipeline.glyphAST.ringTree,
-      candidates: currentPipeline.candidates,
-      recognitions: currentPipeline.recognitions,
-      config: CONFIG
+  const topMatches = recognition.diagnostics?.topMatches ?? [];
+  for (const match of topMatches) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ambiguity-option-button";
+    button.textContent = `${match.kind} ${match.id} (${Math.round(match.confidence * 100)}%)`;
+    button.addEventListener("click", () => {
+      applyAmbiguitySelection(recognition.candidateId, match);
     });
+    elements.ambiguityOptions.appendChild(button);
   }
 
+  elements.ambiguityPanel.classList.remove("hidden");
+}
+
+function hideAmbiguityPanel() {
+  if (!elements.ambiguityPanel) {
+    return;
+  }
+  elements.ambiguityPanel.classList.add("hidden");
+  pendingAmbiguousCandidate = null;
+}
+
+function applyAmbiguitySelection(candidateId, selectedMatch) {
+  hideAmbiguityPanel();
+  if (!pipeline?.recognitions) {
+    return;
+  }
+
+  const recognition = pipeline.recognitions.find((item) => item.candidateId === candidateId);
+  if (!recognition) {
+    return;
+  }
+
+  const entry = dictionary[`${selectedMatch.kind}s`]?.find((item) => item.id === selectedMatch.id);
+  if (!entry) {
+    return;
+  }
+
+  recognition.recognized = true;
+  recognition.kind = selectedMatch.kind;
+  recognition.id = selectedMatch.id;
+  recognition.displayName = entry.displayName ?? selectedMatch.id;
+  recognition.element = entry.element ?? null;
+  recognition.semantic = entry.semantic ?? null;
+  recognition.confidence = selectedMatch.confidence;
+  recognition.recognitionStatus = "valid";
+  recognition.diagnostics.bestGuess = selectedMatch;
+
+  resolvedAmbiguousCandidateIds.add(candidateId);
+  promptedAmbiguousCandidateIds.add(candidateId);
+
+  pipeline.glyphAST = buildGlyphAST({
+    rings: pipeline.glyphAST.rings,
+    ring: pipeline.glyphAST.ring,
+    ringTree: pipeline.glyphAST.ringTree,
+    candidates: pipeline.candidates,
+    recognitions: pipeline.recognitions,
+    config: CONFIG
+  });
+
+  spellIR = compileSpell({ glyphAST: pipeline.glyphAST, dictionary, config: CONFIG });
+  updateSummary({ elements, store, capture, pipeline, spellIR });
+  updateDiagnostics({ elements, store, pipeline, spellIR });
+}
+
+function skipAmbiguityForCandidate(candidateId) {
+  promptedAmbiguousCandidateIds.add(candidateId);
+  hideAmbiguityPanel();
+}
+
+function shouldPromptAmbiguousRecognition(recognition) {
+  if (!recognition || recognition.recognitionStatus !== "ambiguous") {
+    return false;
+  }
+  if (resolvedAmbiguousCandidateIds.has(recognition.candidateId)) {
+    return false;
+  }
+  if (promptedAmbiguousCandidateIds.has(recognition.candidateId)) {
+    return false;
+  }
+  const matches = recognition.diagnostics?.topMatches ?? [];
+  if (matches.length < 2) {
+    return false;
+  }
+  const minConfidence = CONFIG.recognition.minConfidence ?? 0.48;
+  const bestConfidence = matches[0].confidence ?? 0;
+  return bestConfidence >= minConfidence * 0.6;
+}
+
+function resolveAmbiguousRecognitions(currentPipeline) {
+  if (!askOnAmbiguousRecognition || skipAmbiguousOnNextRecompute || !currentPipeline?.recognitions?.length) {
+    skipAmbiguousOnNextRecompute = false;
+    hideAmbiguityPanel();
+    return currentPipeline;
+  }
+
+  const ambiguousRecognition = currentPipeline.recognitions.find((recognition) =>
+    shouldPromptAmbiguousRecognition(recognition)
+  );
+
+  if (!ambiguousRecognition) {
+    hideAmbiguityPanel();
+    return currentPipeline;
+  }
+
+  showAmbiguityPanel(ambiguousRecognition);
   return currentPipeline;
 }
 
@@ -113,7 +183,7 @@ async function recompute() {
     dictionary,
     config: CONFIG
   });
-  pipeline = await resolveAmbiguousRecognitions(pipeline);
+  pipeline = resolveAmbiguousRecognitions(pipeline);
   previousRing = pipeline.ring;
   spellIR = compileSpell({ glyphAST: pipeline.glyphAST, dictionary, config: CONFIG });
   updateSummary({ elements, store, capture, pipeline, spellIR });
@@ -127,7 +197,8 @@ function animationFrame(timestamp) {
     pipeline,
     showGuides: elements.guidesToggle.checked,
     showMultiRingGuides: elements.multiRingGuidesToggle.checked,
-    showDebug: elements.diagnosticsToggle.checked
+    showDebug: elements.diagnosticsToggle.checked,
+    viewTransform: currentViewTransform
   });
 
   if (spellIR.active) {
@@ -136,7 +207,8 @@ function animationFrame(timestamp) {
       duration: spellIR.duration,
       strokes: store.getStrokes(),
       pipeline,
-      timestamp
+      timestamp,
+      viewTransform: currentViewTransform
     });
   }
   
@@ -144,7 +216,8 @@ function animationFrame(timestamp) {
     spellIR,
     ring: pipeline?.ring,
     timestamp,
-    showGuides: elements.guidesToggle.checked
+    showGuides: elements.guidesToggle.checked,
+    viewTransform: currentViewTransform
   });
   requestAnimationFrame(animationFrame);
 }
@@ -153,32 +226,48 @@ function setupControls() {
   elements.undoButton.addEventListener("click", () => {
     store.undo();
     previousRing = null;
+    skipAmbiguousOnNextRecompute = true;
     recompute();
   });
 
   elements.clearButton.addEventListener("click", () => {
     store.clear();
     previousRing = null;
+    skipAmbiguousOnNextRecompute = true;
     recompute();
   });
 
   elements.zoomRange.addEventListener("input", () => {
-    const newZoom = Number(elements.zoomRange.value) || 1;
-    const scaleRatio = newZoom / currentZoom;
-    currentZoom = newZoom;
-    const center = {
+    const newScale = Number(elements.zoomRange.value) || 1;
+    const { scale, offsetX, offsetY } = currentViewTransform;
+    const pivot = capture.getLastCanvasPoint() ?? {
       x: elements.glyphCanvas.width / 2,
       y: elements.glyphCanvas.height / 2
     };
-    store.scaleAroundPoint(scaleRatio, scaleRatio, center);
-    capture.setZoom(currentZoom);
-    elements.zoomValue.textContent = `${Math.round(currentZoom * 100)}%`;
+    const worldX = (pivot.x - offsetX) / scale;
+    const worldY = (pivot.y - offsetY) / scale;
+    const newOffsetX = pivot.x - worldX * newScale;
+    const newOffsetY = pivot.y - worldY * newScale;
+    currentViewTransform = { scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY };
+    updateViewTransform(currentViewTransform);
+    elements.zoomValue.textContent = `${Math.round(newScale * 100)}%`;
     previousRing = null;
     recompute();
   });
 
   elements.ambiguousPromptToggle.addEventListener("change", () => {
     askOnAmbiguousRecognition = elements.ambiguousPromptToggle.checked;
+    if (!askOnAmbiguousRecognition) {
+      hideAmbiguityPanel();
+    }
+  });
+
+  elements.ambiguityDismissButton.addEventListener("click", () => {
+    if (!pendingAmbiguousCandidate) {
+      hideAmbiguityPanel();
+      return;
+    }
+    skipAmbiguityForCandidate(pendingAmbiguousCandidate.candidateId);
   });
 
   elements.guidesToggle.addEventListener("change", () => {
@@ -211,8 +300,8 @@ async function init() {
     onPreview: () => {},
     onCommit: recompute
   });
-  capture.setZoom(currentZoom);
-  elements.zoomValue.textContent = `${Math.round(currentZoom * 100)}%`;
+  capture.setViewTransform(currentViewTransform);
+  elements.zoomValue.textContent = `${Math.round(currentViewTransform.scale * 100)}%`;
 
   try {
     dictionary = await loadDictionary();

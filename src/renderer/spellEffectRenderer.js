@@ -63,7 +63,7 @@ export class SpellEffectRenderer {
     this.lastTime = null;
   }
 
-  render(spellIR, ring, timestamp, options = {}) {
+  render(spellIR, ring, timestamp, options = {}, viewTransform = { scale: 1, offsetX: 0, offsetY: 0 }) {
     const width = this.canvas.width;
     const height = this.canvas.height;
     const ctx = this.ctx;
@@ -84,6 +84,9 @@ export class SpellEffectRenderer {
       resetParticleState(this.state);
     }
 
+    ctx.save();
+    ctx.setTransform(viewTransform.scale, 0, 0, viewTransform.scale, viewTransform.offsetX, viewTransform.offsetY);
+
     if (!spellIR.active && options.showGuides) {
       this.drawRingGlow(ring, spellIR.prepared);
     }
@@ -92,6 +95,7 @@ export class SpellEffectRenderer {
       if (options.showGuides) {
         this.drawFailedFlicker(ring, timestamp);
       }
+      ctx.restore();
       return;
     }
 
@@ -99,21 +103,23 @@ export class SpellEffectRenderer {
       if (options.showGuides) {
         this.drawPreparedGlow(ring, timestamp);
       }
+      ctx.restore();
       return;
     }
 
     const drawEffect = EFFECTS[spellIR.element];
     if (!drawEffect) {
+      ctx.restore();
       return;
     }
 
     const emission = spellEmission(spellIR, timestamp);
     if (emission <= 0 && !this.state.particles.length) {
+      ctx.restore();
       return;
     }
 
     const renderSpellIR = { ...spellIR, emission };
-    ctx.save();
     ctx.globalCompositeOperation = "lighter";
     drawEffect(ctx, this.state, renderSpellIR, ring, dt, this.config);
     ctx.restore();

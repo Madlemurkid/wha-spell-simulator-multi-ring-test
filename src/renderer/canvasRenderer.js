@@ -29,10 +29,14 @@ export class CanvasRenderer {
     this.config = config;
   }
 
-  renderGlyph({ strokes, currentStroke, pipeline, showGuides, showMultiRingGuides, showDebug }) {
+  renderGlyph({ strokes, currentStroke, pipeline, showGuides, showMultiRingGuides, showDebug, viewTransform }) {
     const width = this.glyphCanvas.width;
     const height = this.glyphCanvas.height;
     drawPaper(this.glyphCtx, width, height);
+
+    const transform = viewTransform ?? { scale: 1, offsetX: 0, offsetY: 0 };
+    this.glyphCtx.save();
+    this.glyphCtx.setTransform(transform.scale, 0, 0, transform.scale, transform.offsetX, transform.offsetY);
 
     if (showGuides) {
       const rings = pipeline?.glyphAST?.rings ?? (pipeline?.ring ? [pipeline.ring] : []);
@@ -53,9 +57,26 @@ export class CanvasRenderer {
       drawCandidateDebug(this.glyphCtx, pipeline?.candidates, pipeline?.recognitions);
       drawStrokeIdDebug(this.glyphCtx, strokes);
     }
+
+    this.glyphCtx.restore();
   }
 
-  renderActivatedGlyph({ activatedAt, duration, strokes, pipeline, timestamp }) {
+  renderActivatedGlyph({ activatedAt, duration, strokes, pipeline, timestamp, viewTransform }) {
+    const activatedStrokeIds = getActivatedStrokeIds(pipeline);
+    const glowDuration = Math.max(250, duration * 1000);
+    this.glyphCtx.save();
+    const transform = viewTransform ?? { scale: 1, offsetX: 0, offsetY: 0 };
+    this.glyphCtx.setTransform(transform.scale, 0, 0, transform.scale, transform.offsetX, transform.offsetY);
+    drawGlowingStrokes(
+      this.glyphCtx,
+      activatedAt,
+      activatedStrokeIds,
+      strokes,
+      glowDuration,
+      timestamp
+    );
+    this.glyphCtx.restore();
+  }
     const activatedStrokeIds = getActivatedStrokeIds(pipeline);
     const glowDuration = Math.max(250, duration * 1000);
     drawGlowingStrokes(
@@ -68,7 +89,7 @@ export class CanvasRenderer {
     );
   }
 
-  renderEffect({ spellIR, ring, timestamp, showGuides }) {
-    this.effectRenderer.render(spellIR, ring, timestamp, { showGuides });
+  renderEffect({ spellIR, ring, timestamp, showGuides, viewTransform }) {
+    this.effectRenderer.render(spellIR, ring, timestamp, { showGuides }, viewTransform);
   }
 }
