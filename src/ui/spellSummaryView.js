@@ -85,8 +85,8 @@ export function updateSummary({ elements, store, capture, pipeline, spellIR }) {
       : spellIR?.status ?? "No ring detected";
   updateStatus(elements, status, spellStatusClass(spellIR, closedWithoutSpell, hasUnsupportedStructure));
 
-  const inputLocked = ringClosed || hasUnsupportedStructure;
-  const undoLocked = ringClosed;
+  const inputLocked = hasUnsupportedStructure || Boolean(spellIR?.active);
+  const undoLocked = Boolean(spellIR?.active);
   elements.undoButton.disabled = undoLocked || store.count() === 0;
   elements.glyphCanvas.classList.toggle("locked", inputLocked);
   elements.canvasShell.classList.toggle("portal-active", Boolean(spellIR?.active)); // tilting the paper angle
